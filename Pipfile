@@ -9,9 +9,11 @@ lxml = "*"
 requests = "*"
 beautifulsoup4 = "*"
 html5lib = "*"
+ipdb = "*"
 
 [dev-packages]
 yapf = "*"
+ipython = "*"
 
 [requires]
 python_version = "3.8"
