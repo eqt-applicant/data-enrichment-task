@@ -1,10 +1,12 @@
 # TODO-list
 
-* [ ] write more on testing
-* [ ] write docs
-* [ ] enrich all companies with fund and org reference data
-* [ ] enrich a company with fund reference data
-* [ ] enrich a company with org reference data
+* [ ] extras: logo
+* [ ] extras: sdgs -> replace with text
+* [ ] extras: flatten advisor into advisor_name and advisor_link
+* [x] write more on testing
+* [x] write docs
+* [x] enrich all companies with fund reference data
+* [x] enrich all companies with org reference data
 * [x] scrape all companies own pages
 * [x] scrape a company
 * [x] join current portfolio + divested into companies
@@ -24,19 +26,30 @@ for fund and company data into the non-enriched data model (described below).
 After scraping, the data is enriched with additional fund-and-organization
 reference data and stored as newline-delimited JSON (ndjson).
 
+
 # Assumptions / Ideas for taking this further
 
-This pipeline will run in a daily / weekly batch fashion, scheduled by something like Apache Airflow. I will write this as a single script that runs on my laptop, but it shouldn't be too hard to convert this into a DAG.
-Upon doing that, I would add a task to load this into BigQuery to facilitate running queries against the data.
+This pipeline will run in a daily / weekly batch fashion, scheduled by something
+like Apache Airflow. I will write this as a single script that runs on my
+laptop, but it shouldn't be too hard to convert this into a DAG. Upon doing
+that, I would add a task to load this into BigQuery to facilitate running
+queries against the data.
 
-# Dependencies & tech
+
+
+# Dependencies & discussion of tech decisions 
 
 I have used python 3.8.6 with pipenv for dependency management.
 Libraries used are requests, beautifulsoup4, html5lib and pandas.
 
-No datasets are larger than what fits into the memory of my laptop, therefore I aim for a simple architecture (no need to read in chunks / stream, use gcs as storage etc).
+I aim for a simple architecture (no need to read in chunks / stream, use gcs as
+storage etc).
 
-The setup requires Google Cloud SDK to be installed and authenticated ('gcloud auth').
+The setup requires Google Cloud SDK to be installed and authenticated ('gcloud
+auth').
+
+The given reference dataset of organizations did not fit in memory (old laptop)
+using pandas.read_json() so I parsed the file line by line instead.
 
 # Usage
 
@@ -44,7 +57,8 @@ Run
 
     ./setup-and-get-reference-data.sh
     
-to create temporary directories, download and decompress the reference data to `./data`.
+to create temporary directories, download and decompress the reference data to
+`./data`.
 
 Run
 
@@ -57,42 +71,47 @@ to install required python dependencies.
 
 Runs the pipeline.
 
-# Note on testing
+# Testing
 
 
     pipenv run pytest
     
 Runs the tests.
 
-I have decided to do my tests as assertions on what the data looks like on various steps in the pipeline, where a failing tests prints an error message and exits the script with a non-zero exit code. If this were converted to an Airflow DAG, I would make sure to include the tests as their own tasks where they would be appropriate.
+If this was converted to an Airflow DAG, I would make sure to include the tests
+as their own tasks where they would be appropriate. There are not that many
+things that can be unit tested here. My focus has been to make sure that the
+script can fail if things are not where they are supposed to be. If this was a
+real pipeline, I'd use something like Great Expectations in the DAG and (if
+necessary) monitor the output of the tasks.
 
-# Data model (non-enriched)
+
+    
+# Data model
 
 The data model I have chosen is very flat.
-It is expressed below as pseudo code in tables.
+It is expressed below as pseudo code in tables with JSON examples that follow.
 
-## Entities
-
-| Fund             |
-|------------------|
-| name: str        |
-| launch_year: int |
-| size: str        |
-| status: str      |
+| Fund                    |
+|-------------------------|
+| name: str (primary key) |
+| launch_year: int        |
+| size: str               |
+| status: str             |
 
 
-| Company                     |
-|-----------------------------|
-| name: str                   |
-| sector: str                 |
-| country: str                |
-| responsible_advisor: str    |
-| fund: Record{Fund}          |
-| entry: str                  |
-| exit: str                   |
-| sdg: int[]                  |
-| description: str            |
-| hrefs: str[]                |
-| board_of_directors: str[][] |
-| management: str[][]         |
+| Company                              |
+|--------------------------------------|
+| company: str  (primary key)          |
+| sector: str                          |
+| country: str                         |
+| fund: str (foreign key to Fund.name) |
+| entry: str                           |
+| sdgs: int[]                           |
+| responsible_advisor: str             |
+| exit: str                            |
+| description: str                     |
+| hrefs: str[]                         |
+| board_of_directors: str[][]          |
+| management: str[][]                  |
 
