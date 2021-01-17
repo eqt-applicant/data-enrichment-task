@@ -3,11 +3,12 @@ import pandas as pd
 import logging as log
 import sys
 from bs4 import BeautifulSoup
+import re
 
 
 def setup_logging():
     root = log.getLogger()
-    root.setLevel(log.DEBUG)
+    root.setLevel(log.INFO)
 
     handler = log.StreamHandler(sys.stdout)
     handler.setLevel(log.DEBUG)
@@ -20,8 +21,10 @@ def setup_logging():
 def scrape(url):
     http_headers = {
         "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.75 Safari/537.36",
-        "X-Requested-With": "XMLHttpRequest"
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like " +
+        "Gecko) Chrome/50.0.2661.75 Safari/537.36",
+        "X-Requested-With":
+        "XMLHttpRequest"
     }
     log.info(f'scraping {url}')
     r = requests.get(url, headers=http_headers)
@@ -37,7 +40,7 @@ def assert_one_dataframe(dfs):
 
 def scrape_funds():
     text = scrape('https://www.eqtgroup.com/About-EQT/Funds/Active-Funds/')
-    soup = BeautifulSoup(text)
+    soup = BeautifulSoup(text, features="lxml")
     hrefs = [
         f"https://www.eqtgroup.com{link.get('href')}"
         for link in soup.table.find_all('a')
@@ -54,7 +57,9 @@ def scrape_funds():
 
 
 def extract_company_hrefs(soup):
-    "Extracts hrefs from the first table column (first found <a> tag)"
+    """Extracts hrefs from the first found <a> tag per row (usually the first
+    column).
+    """
     hrefs = []
     rows = soup.table.tbody.find_all('tr')
     for row in rows:
@@ -66,7 +71,7 @@ def extract_company_hrefs(soup):
 
 def scrape_current_portfolio():
     text = scrape('https://www.eqtgroup.com/Investments/Current-Portfolio/')
-    soup = BeautifulSoup(text)
+    soup = BeautifulSoup(text, features="lxml")
     hrefs = extract_company_hrefs(soup)
 
     dfs = pd.read_html(text)
@@ -84,7 +89,7 @@ def scrape_current_portfolio():
 
 def scrape_divested():
     text = scrape('https://www.eqtgroup.com/Investments/Divestments/')
-    soup = BeautifulSoup(text)
+    soup = BeautifulSoup(text, features="lxml")
     hrefs = extract_company_hrefs(soup)
     dfs = pd.read_html(text)
     assert_one_dataframe(dfs)
@@ -98,8 +103,61 @@ def scrape_divested():
     return df
 
 
+def extract_sdgs(soup):
+    sdgs = []
+    for img in soup.find("div", class_="main-contentarea").find_all("img"):
+        img_src = img.attrs.get("src")
+        try:
+            m = re.search("e_print_([0-9]+).jpg", img_src)
+        except AttributeError:
+            continue  # img_src did not match an SDG src
+        sdgs.append(m.group(1))
+    return sdgs
+
+
+def extract_advisor(soup):
+    advisor_span = soup.find("span", class_="advisorname-section")
+    advisor_link = advisor_span.find("a")
+    if advisor_link:
+        href = advisor_link.attrs.get("href")
+        return {
+            "advisor_href": f"http://www.eqtgroup.com{href}",
+            "advisorname": advisor_link.string
+        }
+
+
 def scrape_company(url):
+    log.info(f"scraping company url: {url}")
     text = scrape(url)
+    soup = BeautifulSoup(text, features="lxml")
+
+    advisor = extract_advisor(soup)
+    sdgs = extract_sdgs(soup)
+
+    description = soup.find("div", class_="main-body").get_text()
+    description_links = [
+        link.attrs.get("href")
+        for link in soup.find("div", class_="main-body").find_all("a")
+    ]
+    board_of_directors = [
+        div.get_text().strip().split("\n")
+        for div in soup.find("div", class_="board-of-directors-module").
+        find_all("div", class_="fact-row")
+    ]
+
+    management = [
+        div.get_text().strip().split("\n")
+        for div in soup.find("div", class_="management-module").find_all(
+            "div", class_="fact-row")
+    ]
+    return {
+        "sdgs": sdgs,
+        "advisor": advisor,
+        "description": description,
+        "description_links": description_links,
+        "board_of_directors": board_of_directors,
+        "management": management
+    }
 
 
 def save_ndjson(filename, df):
@@ -122,9 +180,10 @@ def main():
     companies.rename({'hrefs': 'href'})
 
     acumatica = companies.head(1).iloc[0]['hrefs']
+    dict = scrape_company(acumatica)
 
-    import ipdb
-    ipdb.set_trace()
+    from pprint import pprint
+    pprint(dict)
 
     if save:
         save_ndjson('data/raw/funds.ndjson', funds)
