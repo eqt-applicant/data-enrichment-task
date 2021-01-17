@@ -1,17 +1,17 @@
 # TODO-list
 
-* DONE scrape funds page
-* DONE scrape current_portfolio page
-* DONE scrape divested page
-* DONE join current portfolio + divested into companies
-* DONE scrape a company
-* TODO scrape all companies own pages
-* TODO enrich a company with org reference data
-* TODO enrich a company with fund reference data
-* TODO enrich all companies with fund and org reference data
-* TODO write docs
-* TODO write more on testing
-
+* [ ] write more on testing
+* [ ] write docs
+* [ ] enrich all companies with fund and org reference data
+* [ ] enrich a company with fund reference data
+* [ ] enrich a company with org reference data
+* [x] scrape all companies own pages
+* [x] scrape a company
+* [x] join current portfolio + divested into companies
+* [x] scrape divested page
+* [x] scrape current_portfolio page
+* [x] scrape funds page
+  
 # Introduction
 
 This repo contains code to scrape 
@@ -27,7 +27,7 @@ reference data and stored as newline-delimited JSON (ndjson).
 # Assumptions / Ideas for taking this further
 
 This pipeline will run in a daily / weekly batch fashion, scheduled by something like Apache Airflow. I will write this as a single script that runs on my laptop, but it shouldn't be too hard to convert this into a DAG.
-Upon doing that, I would add a step to load this into BigQuery to facilitate running queries against the data.
+Upon doing that, I would add a task to load this into BigQuery to facilitate running queries against the data.
 
 # Dependencies & tech
 

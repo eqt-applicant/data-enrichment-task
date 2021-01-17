@@ -104,8 +104,12 @@ def scrape_divested():
 
 
 def extract_sdgs(soup):
+    main_contentarea_div = soup.find("div", class_="main-contentarea")
+    if not main_contentarea_div:
+        return []
+
     sdgs = []
-    for img in soup.find("div", class_="main-contentarea").find_all("img"):
+    for img in main_contentarea_div.find_all("img"):
         img_src = img.attrs.get("src")
         try:
             m = re.search("e_print_([0-9]+).jpg", img_src)
@@ -134,27 +138,43 @@ def scrape_company(url):
     advisor = extract_advisor(soup)
     sdgs = extract_sdgs(soup)
 
-    description = soup.find("div", class_="main-body").get_text()
-    description_links = [
-        link.attrs.get("href")
-        for link in soup.find("div", class_="main-body").find_all("a")
-    ]
-    board_of_directors = [
-        div.get_text().strip().split("\n")
-        for div in soup.find("div", class_="board-of-directors-module").
-        find_all("div", class_="fact-row")
-    ]
+    description_div = soup.find("div", class_="main-body")
+    description_links = None
+    description = ""
+    if description_div:
+        description_links = [
+            link.attrs.get("href") for link in description_div.find_all("a")
+        ]
+        description = description_div.get_text()
 
-    management = [
-        div.get_text().strip().split("\n")
-        for div in soup.find("div", class_="management-module").find_all(
-            "div", class_="fact-row")
-    ]
+    key_events_div = soup.find("div", class_="key-events")
+    key_events = ""
+    if key_events_div:
+        key_events = key_events_div.get_text()
+
+    board_of_directors_div = soup.find("div",
+                                       class_="board-of-directors-module")
+    board_of_directors = None
+    if board_of_directors_div:
+        board_of_directors = [
+            div.get_text().strip().split("\n")
+            for div in board_of_directors_div.find_all("div",
+                                                       class_="fact-row")
+        ]
+
+    management_div = soup.find("div", class_="management-module")
+    management = None
+    if management_div:
+        management = [
+            div.get_text().strip().split("\n")
+            for div in management_div.find_all("div", class_="fact-row")
+        ]
     return {
         "sdgs": sdgs,
         "advisor": advisor,
         "description": description,
         "description_links": description_links,
+        "key_events": key_events,
         "board_of_directors": board_of_directors,
         "management": management
     }
@@ -174,13 +194,18 @@ def main():
 
     funds = scrape_funds()
     current_portfolio = scrape_current_portfolio()
-    ndivested = scrape_divested()
+    divested = scrape_divested()
 
     companies = current_portfolio.merge(divested, how='outer')
     companies.rename({'hrefs': 'href'})
 
-    from pprint import pprint
-    pprint(dict)
+    companies["own_page"] = companies.apply(
+        lambda row: scrape_company(row["hrefs"]), axis=1)
+    companies = pd.concat([
+        companies.drop(['own_page'], axis=1), companies['own_page'].apply(
+            pd.Series)
+    ],
+                          axis=1)
 
     if save:
         save_ndjson('data/raw/funds.ndjson', funds)
