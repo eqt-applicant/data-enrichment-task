@@ -59,6 +59,11 @@ Runs the pipeline.
 
 # Note on testing
 
+
+    pipenv run pytest
+    
+Runs the tests.
+
 I have decided to do my tests as assertions on what the data looks like on various steps in the pipeline, where a failing tests prints an error message and exits the script with a non-zero exit code. If this were converted to an Airflow DAG, I would make sure to include the tests as their own tasks where they would be appropriate.
 
 # Data model (non-enriched)

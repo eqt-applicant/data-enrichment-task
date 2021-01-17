@@ -14,6 +14,7 @@ ipdb = "*"
 [dev-packages]
 yapf = "*"
 ipython = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.8"

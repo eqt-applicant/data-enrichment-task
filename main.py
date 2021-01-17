@@ -174,13 +174,10 @@ def main():
 
     funds = scrape_funds()
     current_portfolio = scrape_current_portfolio()
-    divested = scrape_divested()
+    ndivested = scrape_divested()
 
     companies = current_portfolio.merge(divested, how='outer')
     companies.rename({'hrefs': 'href'})
-
-    acumatica = companies.head(1).iloc[0]['hrefs']
-    dict = scrape_company(acumatica)
 
     from pprint import pprint
     pprint(dict)
