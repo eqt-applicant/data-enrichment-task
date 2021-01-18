@@ -195,44 +195,38 @@ def read_org_fields(company_names):
             org_data = json.loads(line)
             company_name = org_data["company_name"]
             if company_name in company_names:
-                log.info(f"added org data for {company_name}")
                 orgs[company_name] = org_data
+
+    log.info(f"added org data for {len(orgs)} organizations")
     return orgs
 
 
-def main():
-    setup_logging()
-    save = True
+def scrape_and_save_funds_current_and_divested():
+    log.info("scrape and save funds, current portfolio and divested")
 
-    if not Path('data/raw/companies.ndjson').exists():
-        # scrape and (optionally) save
+    funds = scrape_funds()
+    current_portfolio = scrape_current_portfolio()
+    divested = scrape_divested()
 
-        funds = scrape_funds()
-        current_portfolio = scrape_current_portfolio()
-        divested = scrape_divested()
+    companies = current_portfolio.merge(divested, how='outer')
+    companies.rename(columns={'hrefs': 'href'}, inplace=True)
 
-        companies = current_portfolio.merge(divested, how='outer')
-        companies.rename(columns={'hrefs': 'href'}, inplace=True)
+    companies["own_page"] = companies.apply(
+        lambda row: scrape_company(row["href"]), axis=1)
+    companies = pd.concat([
+        companies.drop(['own_page'], axis=1), companies['own_page'].apply(
+            pd.Series)
+    ],
+                          axis=1)
 
-        companies["own_page"] = companies.apply(
-            lambda row: scrape_company(row["href"]), axis=1)
-        companies = pd.concat([
-            companies.drop(['own_page'], axis=1), companies['own_page'].apply(
-                pd.Series)
-        ],
-                              axis=1)
+    save_ndjson('data/raw/funds.ndjson', funds)
+    save_ndjson('data/raw/companies.ndjson', companies)
 
-        if save:
-            save_ndjson('data/raw/funds.ndjson', funds)
-            save_ndjson('data/raw/companies.ndjson', companies)
 
-    funds = pd.read_json('data/raw/funds.ndjson', lines=True)
-    companies = pd.read_json('data/raw/companies.ndjson', lines=True)
-    companies.rename(columns={'description': 'scraped_description'},
-                     inplace=True)
-
-    # enrich with fund round aggregate and organizational reference data
-
+def enrich_with_reference(companies):
+    log.info(
+        "enriching with fund round aggregate and organizational reference data"
+    )
     reference_funding = pd.read_json(
         'data/reference/interview-test-funding.ndjson', lines=True)
 
@@ -251,19 +245,40 @@ def main():
     reference_funding = reference_funding[reference_funding[
         'company_uuid'].map(lambda uuid: uuid in enriched_org_uuids)]
 
-    funding_rounds_agg = reference_funding.groupby(
-        'company_uuid')['funding_round_uuid', 'company_name',
-                        'investment_type', 'announced_on', 'raised_amount_usd',
-                        'investor_names', 'investor_count'].agg(list)
+    funding_rounds_agg = reference_funding.groupby('company_uuid')[[
+        'funding_round_uuid', 'company_name', 'investment_type',
+        'announced_on', 'raised_amount_usd', 'investor_names', 'investor_count'
+    ]].agg(list)
 
     enriched = enriched_org.merge(funding_rounds_agg,
                                   left_on="uuid",
                                   right_on="company_uuid",
                                   how="left")
+    return enriched
+
+
+def main():
+    setup_logging()
+
+    if not Path('data/raw/companies.ndjson').exists():
+        scrape_and_save_funds_current_and_divested()
+
+    funds = pd.read_json('data/raw/funds.ndjson', lines=True)
+    companies = pd.read_json('data/raw/companies.ndjson', lines=True)
+    companies.rename(columns={'description': 'scraped_description'},
+                     inplace=True)
+
+    enriched = enrich_with_reference(companies)
 
     # clean up
-    enriched.drop(columns=["company_name_x", "company_name_y", "sdg"],
+    log.info('cleaning up the enriched dataset')
+    enriched.drop(columns=["company_name_x", "company_name_y", "sdg", "uuid"],
                   inplace=True)
+    enriched.rename(
+        columns={
+            "management": "management_or_key_figures",
+            "homepage_url": "enriched_homepage_url"
+        })
 
     save_ndjson('data/out/enriched_companies.ndjson', enriched)
     save_ndjson('data/out/fund.ndjson', funds)

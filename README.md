@@ -3,6 +3,9 @@
 * [ ] extras: logo
 * [ ] extras: sdgs -> replace with text
 * [ ] extras: flatten advisor into advisor_name and advisor_link
+* [ ] extras: clean management / key_figures
+* [ ] extras: clean key_events
+* [ ] extras: transform columns into more appropriate data types
 * [x] write more on testing
 * [x] write docs
 * [x] enrich all companies with fund reference data
@@ -34,7 +37,6 @@ like Apache Airflow. I will write this as a single script that runs on my
 laptop, but it shouldn't be too hard to convert this into a DAG. Upon doing
 that, I would add a task to load this into BigQuery to facilitate running
 queries against the data.
-
 
 
 # Dependencies & discussion of tech decisions 
@@ -73,7 +75,6 @@ Runs the pipeline.
 
 # Testing
 
-
     pipenv run pytest
     
 Runs the tests.
@@ -92,6 +93,14 @@ necessary) monitor the output of the tasks.
 The data model I have chosen is very flat.
 It is expressed below as pseudo code in tables with JSON examples that follow.
 
+The tables follow this structure:
+
+| Entity name                                        |
+|----------------------------------------------------|
+| field: type explanation (description with comment) |
+
+## Entities
+
 | Fund                    |
 |-------------------------|
 | name: str (primary key) |
@@ -100,18 +109,35 @@ It is expressed below as pseudo code in tables with JSON examples that follow.
 | status: str             |
 
 
-| Company                              |
-|--------------------------------------|
-| company: str  (primary key)          |
-| sector: str                          |
-| country: str                         |
-| fund: str (foreign key to Fund.name) |
-| entry: str                           |
-| sdgs: int[]                           |
-| responsible_advisor: str             |
-| exit: str                            |
-| description: str                     |
-| hrefs: str[]                         |
-| board_of_directors: str[][]          |
-| management: str[][]                  |
-
+| Company                                                                                                 |
+|---------------------------------------------------------------------------------------------------------|
+| company: str                                                                                            |
+| sector: str (enum-like)                                                                                 |
+| country: str (enum-like)                                                                                |
+| fund: str (foreign key to Fund.name)                                                                    |
+| entry: str (Month Year)                                                                                 |
+| href: str                                                                                               |
+| exit: str  (Month Year, nullable)                                                                       |
+| sdgs: str[] (strings uniquely identifing an sdg; enum-like)                                             |
+| advisor: {"advisorname": str, "advisor_href": str}                                                      |
+| scraped_description: str                                                                                |
+| description_links: str[]  (where you usually find the company url)                                      |
+| key_events: str (could be empty str instead of None)                                                    |
+| board_of_directors: str[][] - [] of [name:str, title:str] pairs (nullable)                              |
+| management_or_key_events: str[][] - [] of [name:str, title:str] pairs (or [key:str figure:str] pairs)   |
+| enriched_homepage_url: str, nullable                                                                    |
+| country_code: str, nullable                                                                             |
+| city: str, nullable                                                                                     |
+| founded_on: date, nullable                                                                              |
+| short_description: str                                                                                  |
+| description: str                                                                                        |
+| funding_rounds: int                                                                                     |
+| last_funding_on: str (date, YYYY-MM-DD)                                                                 |
+| funding_total_usd: int                                                                                  |
+| employee_count: str                                                                                     |
+| funding_round_uuid: str[] (ordered aggregate list from earliest to latest funding round)                |
+| investment_type: str[] (ordered aggregate list from earliest to latest funding round)                   |
+| announced_on: str[] (dates YYYY-MM-DD)  (ordered aggregate list from earliest to latest funding round)  |
+| raised_amount_usd: number[] (can be NaN) (ordered aggregate list from earliest to latest funding round) |
+| investor_names: str[] (ordered aggregate list from earliest to latest funding round)                    |
+| investor_count: number[] (ordered aggregate list from earliest to latest funding round)                 |
