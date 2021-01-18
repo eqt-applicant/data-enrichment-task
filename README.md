@@ -26,9 +26,10 @@ This repo contains code to scrape
  - https://www.eqtgroup.com/Investments/Current-Portfolio/
  - https://www.eqtgroup.com/Investments/Divestments/
 
-for fund and company data into the non-enriched data model (described below).
-After scraping, the data is enriched with additional fund-and-organization
-reference data and stored as newline-delimited JSON (ndjson).
+for fund and company data. After scraping, the data is enriched with additional
+fund-and-organization reference data and stored as newline-delimited JSON
+(ndjson) in the data model described below.
+
 
 The two files belonging to the final resulting dataset can be found in _result.tar.gz_.
 
@@ -110,6 +111,7 @@ The tables follow this structure:
 | launch_year: int        |
 | size: str               |
 | status: str             |
+| hrefs: str              |
 
 Example:
 
