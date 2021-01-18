@@ -230,8 +230,9 @@ def enrich_with_reference(companies):
     reference_funding = pd.read_json(
         'data/reference/interview-test-funding.ndjson', lines=True)
 
+    # used to filter out relevant companies,
+    # as company_name is used as join key
     company_names = set(companies["company"].to_list())
-    company_names |= set(map(str.lower, companies["company"].to_list()))
 
     reference_org_fields = read_org_fields(company_names)
     reference_org = pd.DataFrame.from_dict(reference_org_fields,
